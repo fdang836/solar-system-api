@@ -1,8 +1,21 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, abort, make_response
 from app.models.planets import Planet
 from app import db
 
 planets_bp = Blueprint("planets_bp", __name__, url_prefix="/planets")
+
+def validate_planet(planet_id):
+    try:
+        planet_id = int(planet_id)
+    except:
+        abort(make_response({"msg": f"planet {planet_id} invalid"}, 400))
+
+    planet = Planet.query.get(planet_id)
+
+    if not planet:
+        abort(make_response({"msg": f"planet {planet_id} not found"}, 404))
+
+    return planet
 
 @planets_bp.route('', methods=['POST'])
 def create_one_planet():
@@ -31,8 +44,42 @@ def get_all_planet():
     return jsonify(planets_response)
 
 
+@planets_bp.route('/<planet_id>', methods=['GET'])
+def get_one_planet(planet_id):
+    planet = validate_planet(planet_id)
+    
+    rsp = {
+        "id": planet.id,
+        "name": planet.name,
+        "description": planet.description,
+        "color": planet.color
+    }
+    return jsonify(rsp)
 
 
+@planets_bp.route('/<planet_id>', methods=['PUT'])
+def put_one_planet(planet_id):
+    chosen_planet = validate_planet(planet_id)
+    
+    request_body = request.get_json()
+    chosen_planet.name = request_body["name"]
+    chosen_planet.description = request_body["description"]
+    chosen_planet.color = request_body["color"]
+    db.session.commit()
+    rsp = {
+        "msg": f"{planet_id} sucessfully updated"
+    }
+    return jsonify(rsp), 200
+
+@planets_bp.route('/<planet_id>', methods=['DELETE'])
+def delete_one_planet(planet_id):
+    chosen_planet = validate_planet(planet_id)
+    db.session.delete(chosen_planet)
+    db.session.commit()
+    rsp = {
+        "msg": f"{planet_id} sucessfully deleted"
+    }
+    return jsonify(rsp), 200
 
 # class Planet:
 #     def __init__(self, id, name, description, color):
